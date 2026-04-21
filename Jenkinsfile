@@ -13,29 +13,20 @@ pipeline {
             }
         }
 
-        stage('Verificar archivos') {
-            steps {
-                sh 'pwd'
-                sh 'ls -la'
-                sh 'ls -la app'
-            }
-        }
-
         stage('Construir imagen Docker') {
             steps {
-                sh 'docker build -t $IMAGE_NAME ./app'
+                // El --no-cache asegura que Docker lea tu nuevo mensaje de app.py
+                sh 'docker build --no-cache -t $IMAGE_NAME ./app'
             }
         }
 
-        stage('Detener contenedor anterior') {
+        stage('Limpiar y Desplegar') {
             steps {
+                // Detenemos y borramos el contenedor viejo
                 sh 'docker stop $CONTAINER_NAME || true'
                 sh 'docker rm $CONTAINER_NAME || true'
-            }
-        }
-
-        stage('Ejecutar contenedor') {
-            steps {
+                
+                // Ejecutamos el nuevo
                 sh 'docker run -d --name $CONTAINER_NAME -p 5000:5000 $IMAGE_NAME'
             }
         }
@@ -43,17 +34,20 @@ pipeline {
         stage('Validar despliegue') {
             steps {
                 sh 'docker ps'
-                sh 'curl http://localhost:5000/health'
+                // Esperamos 5 segundos a que Flask termine de arrancar
+                sleep 5
+                // Probamos la ruta principal (/) ya que es donde tienes tu mensaje
+                sh 'curl http://localhost:5000/'
             }
         }
     }
 
     post {
         success {
-            echo 'Pipeline ejecutado correctamente'
+            echo '¡Despliegue automático exitoso!'
         }
         failure {
-            echo 'Pipeline falló'
+            echo 'El pipeline falló. Revisa el Console Output.'
         }
     }
 }
